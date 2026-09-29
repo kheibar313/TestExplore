@@ -17,6 +17,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(TestExplorer STATIC
     src/TestExplorer.cpp
+    src/TestCase.cpp
+    src/TestContext.cpp
+    src/TestFailure.cpp
+    src/TestResult.cpp
+    src/TestRunner.cpp
+    src/TestRegistry.cpp
 )
 
 target_include_directories(TestExplorer
