@@ -1,6 +1,0 @@
-E:/MyFile/myCode/TestExplore/build/CMakeFiles/TestExplorer.dir
-E:/MyFile/myCode/TestExplore/build/CMakeFiles/TestExplorerCLI.dir
-E:/MyFile/myCode/TestExplore/build/CMakeFiles/TestExplorerSelfTests.dir
-E:/MyFile/myCode/TestExplore/build/CMakeFiles/TestExplorerExample.dir
-E:/MyFile/myCode/TestExplore/build/CMakeFiles/edit_cache.dir
-E:/MyFile/myCode/TestExplore/build/CMakeFiles/rebuild_cache.dir

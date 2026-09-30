@@ -23,6 +23,8 @@ add_library(TestExplorer STATIC
     src/TestResult.cpp
     src/TestRunner.cpp
     src/TestRegistry.cpp
+    src/CurrentTestContext.cpp
+    src/ConsoleReporter.cpp
 )
 
 target_include_directories(TestExplorer

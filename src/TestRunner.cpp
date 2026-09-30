@@ -1,16 +1,26 @@
 #include <TestExplorer/TestRunner.hpp>
+
+#include <TestExplorer/CurrentTestContext.hpp>
 #include <TestExplorer/TestCase.hpp>
 #include <TestExplorer/TestContext.hpp>
 #include <TestExplorer/TestRegistry.hpp>
-#include <TestExplorer/CurrentTestContext.hpp>
+#include <TestExplorer/TestReporter.hpp>
 
 #include <chrono>
 #include <vector>
 
 namespace testexplorer
 {
-    TestResult TestRunner::run(const TestCase &test)
+    TestRunner::TestRunner(TestReporter *reporter) : m_reporter(reporter) {}
+
+    TestResult TestRunner::run(
+        const TestCase &test)
     {
+        if (m_reporter != nullptr)
+        {
+            m_reporter->testStarted(test);
+        }
+
         TestContext context;
 
         CurrentTestContext::set(context);
@@ -32,12 +42,19 @@ namespace testexplorer
             std::chrono::duration_cast<TestResult::Duration>(
                 end - start);
 
-        return TestResult(
+        TestResult result(
             test.id(),
             test.name(),
             status,
             duration,
             context.failures());
+
+        if (m_reporter != nullptr)
+        {
+            m_reporter->testFinished(result);
+        }
+
+        return result;
     }
 
     std::vector<TestResult> TestRunner::runAll(
@@ -48,6 +65,11 @@ namespace testexplorer
         for (const TestCase &test : registry.tests())
         {
             results.push_back(run(test));
+        }
+
+        if (m_reporter != nullptr)
+        {
+            m_reporter->testRunFinished(results);
         }
 
         return results;

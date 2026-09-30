@@ -1,2 +1,0 @@
-C:\msys64\ucrt64\bin\ar.exe qc libTestExplorer.a CMakeFiles/TestExplorer.dir/src/TestExplorer.cpp.obj CMakeFiles/TestExplorer.dir/src/TestCase.cpp.obj CMakeFiles/TestExplorer.dir/src/TestContext.cpp.obj CMakeFiles/TestExplorer.dir/src/TestFailure.cpp.obj CMakeFiles/TestExplorer.dir/src/TestResult.cpp.obj CMakeFiles/TestExplorer.dir/src/TestRunner.cpp.obj CMakeFiles/TestExplorer.dir/src/TestRegistry.cpp.obj
-C:\msys64\ucrt64\bin\ranlib.exe libTestExplorer.a
