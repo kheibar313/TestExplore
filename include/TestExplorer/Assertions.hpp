@@ -3,31 +3,49 @@
 
 #include <TestExplorer/TestContext.hpp>
 #include <TestExplorer/TestFailure.hpp>
+#include <TestExplorer/CurrentTestContext.hpp>
 
 #include <string>
+#include <sstream>
+#include <source_location>
 
 namespace testexplorer
 {
+    template <typename T>
+    std::string formatValue(const T &value)
+    {
+        std::ostringstream stream;
+        stream << value;
+        return stream.str();
+    }
 
     inline void expectTrue(
         TestContext &context,
-        bool condition)
+        bool condition,
+        std::source_location location =
+            std::source_location::current())
     {
         if (!condition)
         {
             context.addFailure(
-                TestFailure("Expected condition to be true"));
+                TestFailure(
+                    "Expected condition to be true",
+                    location));
         }
     }
 
     inline void expectFalse(
         TestContext &context,
-        bool condition)
+        bool condition,
+        std::source_location location =
+            std::source_location::current())
     {
         if (condition)
         {
             context.addFailure(
-                TestFailure("Expected condition to be false"));
+                TestFailure(
+                    "Expected condition to be false",
+                    location));
         }
     }
 
@@ -35,12 +53,23 @@ namespace testexplorer
     void expectEqual(
         TestContext &context,
         const T &actual,
-        const U &expected)
+        const U &expected,
+        std::source_location location =
+            std::source_location::current())
     {
         if (!(actual == expected))
         {
+            std::ostringstream message;
+
+            message
+                << "Expected values to be equal\n"
+                << "Expected: " << formatValue(expected) << '\n'
+                << "Actual:   " << formatValue(actual);
+
             context.addFailure(
-                TestFailure("Expected values to be equal"));
+                TestFailure(
+                    message.str(),
+                    location));
         }
     }
 
@@ -48,15 +77,46 @@ namespace testexplorer
     void expectNotEqual(
         TestContext &context,
         const T &actual,
-        const U &expected)
+        const U &expected,
+        std::source_location location =
+            std::source_location::current())
     {
         if (actual == expected)
         {
+            std::ostringstream message;
+
+            message
+                << "Expected values to be different\n"
+                << "Value: " << formatValue(actual);
+
             context.addFailure(
-                TestFailure("Expected values to be different"));
+                TestFailure(
+                    message.str(),
+                    location));
         }
     }
-
 }
+
+#define EXPECT_TRUE(condition)                     \
+    ::testexplorer::expectTrue(                    \
+        ::testexplorer::CurrentTestContext::get(), \
+        (condition))
+
+#define EXPECT_FALSE(condition)                    \
+    ::testexplorer::expectFalse(                   \
+        ::testexplorer::CurrentTestContext::get(), \
+        (condition))
+
+#define EXPECT_EQ(actual, expected)                \
+    ::testexplorer::expectEqual(                   \
+        ::testexplorer::CurrentTestContext::get(), \
+        (actual),                                  \
+        (expected))
+
+#define EXPECT_NE(actual, expected)                \
+    ::testexplorer::expectNotEqual(                \
+        ::testexplorer::CurrentTestContext::get(), \
+        (actual),                                  \
+        (expected))
 
 #endif

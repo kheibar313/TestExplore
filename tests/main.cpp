@@ -4,6 +4,7 @@
 #include <TestExplorer/TestRegistry.hpp>
 #include <TestExplorer/TestRunner.hpp>
 #include <iostream>
+#include <string>
 
 int main()
 {
@@ -14,10 +15,10 @@ int main()
         "Passing Test",
         [](TestContext &context)
         {
-            expectTrue(context, true);
-            expectFalse(context, false);
-            expectEqual(context, 10, 10);
-            expectNotEqual(context, 10, 20);
+            EXPECT_TRUE(true);
+            EXPECT_FALSE(false);
+            EXPECT_EQ(10, 10);
+            EXPECT_NE(10, 20);
         });
 
     TestCase failedTest(
@@ -25,8 +26,12 @@ int main()
         "Failing Test",
         [](TestContext &context)
         {
-            expectTrue(context, false);
-            expectEqual(context, 10, 20);
+            EXPECT_EQ(
+                std::string("hello"),
+                std::string("world"));
+            EXPECT_TRUE(false);
+            EXPECT_EQ(10, 20);
+            EXPECT_NE(10, 10);
         });
 
     TestRegistry registry;
@@ -69,6 +74,21 @@ int main()
                 << "  Failures: "
                 << result.failures().size()
                 << '\n';
+
+            for (const TestFailure &failure : result.failures())
+            {
+                std::cout
+                    << "  Message: "
+                    << failure.message()
+                    << '\n';
+
+                std::cout
+                    << "  Location: "
+                    << failure.location().file_name()
+                    << ':'
+                    << failure.location().line()
+                    << '\n';
+            }
         }
     }
 

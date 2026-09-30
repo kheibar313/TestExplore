@@ -24,7 +24,8 @@ The current core provides:
 - `TestResult`
 - `TestRegistry`
 - `TestRunner`
-- Basic assertions
+- Assertion functions
+- User-facing assertion macros
 - Test registration
 - Test lookup by ID
 - Single-test execution
@@ -32,17 +33,52 @@ The current core provides:
 - Failure collection
 - Execution timing
 - C++20 `std::source_location` support
+- Current test context management
+- Initial reporter abstraction
 
 ### Assertions
 
-The current assertion API includes:
+TestExplorer provides a user-facing assertion API through the following macros:
 
 ```cpp
-expectTrue(context, condition);
-expectFalse(context, condition);
-expectEqual(context, actual, expected);
-expectNotEqual(context, actual, expected);
+EXPECT_TRUE(condition);
+EXPECT_FALSE(condition);
+EXPECT_EQ(actual, expected);
+EXPECT_NE(actual, expected);
 ```
+
+For example:
+
+```cpp
+TestCase test(
+    "math.addition",
+    "Addition Test",
+    [](TestContext& context)
+    {
+        EXPECT_EQ(2 + 2, 4);
+        EXPECT_TRUE(10 > 5);
+    }
+);
+```
+
+The assertion macros provide a clean test-writing interface while the underlying assertion functions remain responsible for performing the actual checks and recording failures.
+
+Assertion failures currently include:
+
+- Failure messages
+- Expected values where applicable
+- Actual values where applicable
+- `std::source_location`
+
+For example:
+
+```text
+Expected values to be equal
+Expected: world
+Actual:   hello
+```
+
+The reported source location points to the actual assertion call inside the test.
 
 ---
 
@@ -56,7 +92,9 @@ A typical TestExplorer workflow consists of three steps:
 
 ### 1. Define a Test
 
-A test is represented by a `TestCase`. The test body receives a `TestContext`, which is used to perform assertions and collect failures.
+A test is represented by a `TestCase`.
+
+The test body currently receives a `TestContext`, while the public assertion API accesses the active context automatically through TestExplorer's current-context mechanism.
 
 ```cpp
 TestCase test(
@@ -64,7 +102,8 @@ TestCase test(
     "Addition Test",
     [](TestContext& context)
     {
-        expectEqual(context, 2 + 2, 4);
+        EXPECT_EQ(2 + 2, 4);
+        EXPECT_TRUE(10 > 5);
     }
 );
 ```
@@ -100,12 +139,18 @@ const auto results = runner.runAll(registry);
 The complete workflow can therefore be summarized as:
 
 ```cpp
+#include <TestExplorer/Assertions.hpp>
+#include <TestExplorer/TestCase.hpp>
+#include <TestExplorer/TestRegistry.hpp>
+#include <TestExplorer/TestRunner.hpp>
+
 TestCase test(
     "math.addition",
     "Addition Test",
     [](TestContext& context)
     {
-        expectEqual(context, 2 + 2, 4);
+        EXPECT_EQ(2 + 2, 4);
+        EXPECT_TRUE(10 > 5);
     }
 );
 
@@ -113,6 +158,7 @@ TestRegistry registry;
 registry.registerTest(test);
 
 TestRunner runner;
+
 const auto results = runner.runAll(registry);
 ```
 
@@ -126,11 +172,25 @@ Each test execution produces a `TestResult` containing:
 - Execution duration
 - Failure information
 
-For example, a successful test produces a result with the `Passed` status, while a test with failed assertions produces a `Failed` result containing the corresponding failure information.
+Current statuses are:
 
-### A More Realistic Example
+```cpp
+enum class TestStatus
+{
+    Passed,
+    Failed,
+    Skipped,
+    Error
+};
+```
 
-Tests can contain multiple operations and assertions. TestExplorer does not impose a limit on the complexity of the test logic itself:
+A successful test produces a `Passed` result, while a test with failed assertions produces a `Failed` result containing the corresponding failure information.
+
+---
+
+## A More Realistic Example
+
+Tests can contain multiple operations and assertions. TestExplorer does not impose a limit on the complexity of the test logic itself.
 
 ```cpp
 TestCase test(
@@ -140,19 +200,25 @@ TestCase test(
     {
         std::vector<int> values = {1, 2, 3, 4, 5};
 
-        expectEqual(context, values.size(), 5);
-        expectEqual(context, values.front(), 1);
-        expectEqual(context, values.back(), 5);
+        EXPECT_EQ(values.size(), 5);
+        EXPECT_EQ(values.front(), 1);
+        EXPECT_EQ(values.back(), 5);
 
         values.push_back(6);
 
-        expectEqual(context, values.size(), 6);
-        expectTrue(context, values[5] == 6);
+        EXPECT_EQ(values.size(), 6);
+        EXPECT_TRUE(values[5] == 6);
     }
 );
 ```
 
-The framework is responsible for executing the test, collecting assertion failures, measuring execution time, and producing the corresponding `TestResult`.
+The framework is responsible for:
+
+- Executing the test
+- Managing its execution context
+- Collecting assertion failures
+- Measuring execution time
+- Producing the corresponding `TestResult`
 
 The logic being tested remains entirely within the test itself.
 
@@ -160,31 +226,38 @@ The logic being tested remains entirely within the test itself.
 
 ## Architecture
 
-TestExplorer is currently built around a small set of independent components:
+TestExplorer is built around a set of independent components with clearly separated responsibilities.
 
 ```text
-                    Test Application
-                           │
-                           ▼
-                      TestRunner
-                           │
-                  ┌────────┴────────┐
-                  │                 │
-                  ▼                 ▼
-            TestRegistry         TestResult
-                  │
-                  ▼
-               TestCase
-                  │
-                  ▼
-             TestContext
-                  │
-                  ▼
-              Assertions
-                  │
-                  ▼
-             TestFailure
+                         Test Application
+                                │
+                                ▼
+                           TestRunner
+                                │
+              ┌─────────────────┼─────────────────┐
+              │                 │                 │
+              ▼                 ▼                 ▼
+        TestRegistry        TestContext       Reporter
+              │                 │                 │
+              ▼                 ▼                 ▼
+          TestCase          Assertions      TestResult
+                                │
+                                ▼
+                           TestFailure
 ```
+
+The intended dependency direction is:
+
+```text
+Consumer Tests / CLI / Examples
+              │
+              ▼
+      TestExplorer Library
+```
+
+The framework is designed so that the execution core does not depend on a specific reporting format.
+
+---
 
 ### TestCase
 
@@ -198,6 +271,8 @@ A `TestCase` contains:
 
 A `TestCase` does **not** store the result of its execution.
 
+---
+
 ### TestRegistry
 
 Responsible for storing and organizing registered tests.
@@ -209,6 +284,8 @@ It currently provides:
 - Test lookup by ID
 
 The registry does not execute tests.
+
+---
 
 ### TestRunner
 
@@ -222,12 +299,39 @@ It currently handles:
 - Status determination
 - Running individual tests
 - Running all registered tests
+- Managing the active `TestContext`
+
+The runner does not perform assertion comparisons or format test output.
+
+---
 
 ### TestContext
 
 Represents the execution context of a single test.
 
 Currently, it stores assertion failures generated during test execution.
+
+---
+
+### CurrentTestContext
+
+`CurrentTestContext` provides temporary access to the `TestContext` associated with the currently executing test.
+
+Its purpose is to allow the user-facing assertion API to remain simple:
+
+```cpp
+EXPECT_EQ(actual, expected);
+```
+
+instead of requiring:
+
+```cpp
+expectEqual(context, actual, expected);
+```
+
+The current context is stored using `thread_local` state so that the mechanism does not depend on a process-wide shared context.
+
+---
 
 ### TestFailure
 
@@ -237,6 +341,8 @@ A failure currently contains:
 
 - Failure message
 - `std::source_location`
+
+---
 
 ### TestResult
 
@@ -250,17 +356,28 @@ It contains:
 - Duration
 - Failures
 
-Current statuses are:
+---
+
+### TestReporter
+
+`TestReporter` defines the reporting interface used to separate test execution from result presentation.
+
+The reporter abstraction currently provides lifecycle hooks for:
 
 ```cpp
-enum class TestStatus
-{
-    Passed,
-    Failed,
-    Skipped,
-    Error
-};
+testStarted(...)
+testFinished(...)
+testRunFinished(...)
 ```
+
+This allows future reporters such as:
+
+- Console reporter
+- JSON reporter
+- XML reporter
+- IDE-oriented reporters
+
+to consume test execution results without coupling those output formats to `TestRunner`.
 
 ---
 
@@ -289,7 +406,9 @@ TestExplore/
 │       ├── TestResult.hpp
 │       ├── TestRunner.hpp
 │       ├── TestRegistry.hpp
-│       └── Assertions.hpp
+│       ├── Assertions.hpp
+│       ├── CurrentTestContext.hpp
+│       └── TestReporter.hpp
 │
 ├── src/
 │   ├── TestExplorer.cpp
@@ -298,7 +417,8 @@ TestExplore/
 │   ├── TestFailure.cpp
 │   ├── TestResult.cpp
 │   ├── TestRunner.cpp
-│   └── TestRegistry.cpp
+│   ├── TestRegistry.cpp
+│   └── CurrentTestContext.cpp
 │
 └── tests/
     └── main.cpp
@@ -388,11 +508,21 @@ The project is being developed incrementally.
 
 ### Assertions
 
-- [ ] Professional failure messages
-- [ ] Actual value reporting
-- [ ] Expected value reporting
-- [ ] Correct assertion source-location reporting
-- [ ] User-facing assertion macros
+- [x] Professional failure messages
+- [x] Actual value reporting
+- [x] Expected value reporting
+- [x] Correct assertion source-location reporting
+- [x] User-facing assertion macros
+- [x] Current test context
+
+### Reporting
+
+- [x] Reporter abstraction
+- [ ] Console reporter
+- [ ] Test summaries
+- [ ] JSON reporter
+- [ ] XML reporter
+- [ ] Structured output
 
 ### Test Organization
 
@@ -411,20 +541,12 @@ The project is being developed incrementally.
 - [ ] Parameterized tests
 - [ ] Test data
 
-### Reporting
-
-- [ ] Console reporter
-- [ ] Test summaries
-- [ ] JSON reporter
-- [ ] XML reporter
-- [ ] Structured output
-
 ### Integration
 
 - [ ] Exit codes
 - [ ] CI/CD integration
-- [ ] IDE integration
 - [ ] CLI test discovery and execution
+- [ ] IDE integration
 
 The roadmap is intentionally incremental. New features will be introduced only after the underlying architecture is stable enough to support them.
 
@@ -452,6 +574,10 @@ The architecture should allow features such as reporters, filtering, fixtures, a
 
 A test definition should remain independent from the result of its execution.
 
+### Incremental Development
+
+Features should be introduced in small, testable milestones rather than building the entire framework at once.
+
 ---
 
 ## Current Non-Goals
@@ -476,7 +602,7 @@ TestExplorer is an experimental open-source project under active development.
 
 The API is **not stable** and may change significantly before the first release.
 
-The current development focus is the core execution and assertion architecture.
+The current development focus is the framework's execution, assertion, and reporting architecture.
 
 ---
 

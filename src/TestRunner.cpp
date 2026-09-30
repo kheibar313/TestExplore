@@ -2,6 +2,7 @@
 #include <TestExplorer/TestCase.hpp>
 #include <TestExplorer/TestContext.hpp>
 #include <TestExplorer/TestRegistry.hpp>
+#include <TestExplorer/CurrentTestContext.hpp>
 
 #include <chrono>
 #include <vector>
@@ -12,11 +13,15 @@ namespace testexplorer
     {
         TestContext context;
 
+        CurrentTestContext::set(context);
+
         const auto start = std::chrono::steady_clock::now();
 
         test.execute(context);
 
         const auto end = std::chrono::steady_clock::now();
+
+        CurrentTestContext::clear();
 
         const TestStatus status =
             context.failures().empty()
