@@ -9,17 +9,20 @@
 
 using namespace testexplorer;
 
-int main()
+namespace
 {
-    TestRegistry registry;
 
-    // Basic passing test
+void registerTests(TestRegistry& registry)
+{
     // ------------------------------------------------------------
+    // Assertion tests
+    // ------------------------------------------------------------
+
     registry.registerTest(
         TestCase(
             "assertions.passing",
             "Passing Assertions",
-            [](TestContext &)
+            [](TestContext&)
             {
                 EXPECT_TRUE(true);
                 EXPECT_FALSE(false);
@@ -28,13 +31,11 @@ int main()
                 EXPECT_NE(10, 20);
             }));
 
-    // Multiple assertion failures
-    // ------------------------------------------------------------
     registry.registerTest(
         TestCase(
             "assertions.failing",
             "Failing Assertions",
-            [](TestContext &)
+            [](TestContext&)
             {
                 EXPECT_TRUE(false);
                 EXPECT_FALSE(true);
@@ -43,13 +44,11 @@ int main()
                 EXPECT_NE(10, 10);
             }));
 
-    // String comparison
-    // ------------------------------------------------------------
     registry.registerTest(
         TestCase(
             "assertions.strings",
             "String Assertions",
-            [](TestContext &)
+            [](TestContext&)
             {
                 EXPECT_EQ(
                     std::string("hello"),
@@ -60,73 +59,97 @@ int main()
                     std::string("world"));
             }));
 
-    // Multiple failures in one test
-    // ------------------------------------------------------------
     registry.registerTest(
         TestCase(
             "assertions.multiple_failures",
             "Multiple Failures",
-            [](TestContext &)
+            [](TestContext&)
             {
                 EXPECT_EQ(1, 2);
                 EXPECT_EQ(3, 4);
                 EXPECT_TRUE(false);
             }));
 
-    // TestRunner + ConsoleReporter
     // ------------------------------------------------------------
-    ConsoleReporter reporter(std::cout);
-
-    TestRunner runner(&reporter);
-
-    const auto results = runner.runAll(registry);
-
-    // Basic result verification
+    // Filtering tests
     // ------------------------------------------------------------
-    if (results.size() != 4)
+
+    registry.registerTest(
+        TestCase(
+            "math.addition",
+            "Math Addition",
+            [](TestContext&)
+            {
+                EXPECT_EQ(2 + 2, 4);
+            }));
+
+    registry.registerTest(
+        TestCase(
+            "math.subtraction",
+            "Math Subtraction",
+            [](TestContext&)
+            {
+                EXPECT_EQ(5 - 3, 2);
+            }));
+
+    registry.registerTest(
+        TestCase(
+            "string.compare",
+            "String Compare",
+            [](TestContext&)
+            {
+                EXPECT_EQ(
+                    std::string("hello"),
+                    std::string("hello"));
+            }));
+}
+
+bool verifyBasicResults(
+    const std::vector<TestResult>& results
+)
+{
+    if (results.size() != 7)
     {
         std::cerr
-            << "Self-test error: expected 4 results, got "
+            << "Self-test error: expected 7 results, got "
             << results.size()
             << '\n';
 
-        return 1;
+        return false;
     }
 
-    if (results[0].status() != TestStatus::Passed)
+    // Verify expected test statuses.
+    const TestStatus expectedStatuses[] =
     {
-        std::cerr
-            << "Self-test error: Passing Assertions should pass.\n";
+        TestStatus::Passed,
+        TestStatus::Failed,
+        TestStatus::Passed,
+        TestStatus::Failed,
+        TestStatus::Passed,
+        TestStatus::Passed,
+        TestStatus::Passed
+    };
 
-        return 1;
-    }
-
-    if (results[1].status() != TestStatus::Failed)
+    for (std::size_t i = 0; i < results.size(); ++i)
     {
-        std::cerr
-            << "Self-test error: Failing Assertions should fail.\n";
+        if (results[i].status() != expectedStatuses[i])
+        {
+            std::cerr
+                << "Self-test error: unexpected status for test #"
+                << i
+                << ".\n";
 
-        return 1;
+            return false;
+        }
     }
 
-    if (results[2].status() != TestStatus::Passed)
-    {
-        std::cerr
-            << "Self-test error: String Assertions should pass.\n";
+    return true;
+}
 
-        return 1;
-    }
-
-    if (results[3].status() != TestStatus::Failed)
-    {
-        std::cerr
-            << "Self-test error: Multiple Failures should fail.\n";
-
-        return 1;
-    }
-
-    // Verify failure collection
-    // ------------------------------------------------------------
+bool verifyFailures(
+    const std::vector<TestResult>& results
+)
+{
     if (results[1].failures().size() != 4)
     {
         std::cerr
@@ -135,7 +158,7 @@ int main()
             << results[1].failures().size()
             << '\n';
 
-        return 1;
+        return false;
     }
 
     if (results[3].failures().size() != 3)
@@ -146,8 +169,178 @@ int main()
             << results[3].failures().size()
             << '\n';
 
+        return false;
+    }
+
+    return true;
+}
+
+bool verifyMathFilter(
+    const std::vector<TestResult>& results
+)
+{
+    if (results.size() != 2)
+    {
+        std::cerr
+            << "Self-test error: expected 2 filtered results, got "
+            << results.size()
+            << '\n';
+
+        return false;
+    }
+
+    if (results[0].testId() != "math.addition")
+    {
+        std::cerr
+            << "Self-test error: first filtered test is incorrect.\n";
+
+        return false;
+    }
+
+    if (results[1].testId() != "math.subtraction")
+    {
+        std::cerr
+            << "Self-test error: second filtered test is incorrect.\n";
+
+        return false;
+    }
+
+    if (results[0].status() != TestStatus::Passed ||
+        results[1].status() != TestStatus::Passed)
+    {
+        std::cerr
+            << "Self-test error: filtered tests should pass.\n";
+
+        return false;
+    }
+
+    return true;
+}
+
+bool verifyEmptyFilter(
+    const std::vector<TestResult>& results
+)
+{
+    if (!results.empty())
+    {
+        std::cerr
+            << "Self-test error: expected no tests to match filter, got "
+            << results.size()
+            << '\n';
+
+        return false;
+    }
+
+    return true;
+}
+
+bool verifyAllFilter(
+    const std::vector<TestResult>& results
+)
+{
+    if (results.size() != 7)
+    {
+        std::cerr
+            << "Self-test error: expected all 7 tests to match filter, got "
+            << results.size()
+            << '\n';
+
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace
+
+int main()
+{
+    // ------------------------------------------------------------
+    // Test registration
+    // ------------------------------------------------------------
+
+    TestRegistry registry;
+
+    registerTests(registry);
+
+    // ------------------------------------------------------------
+    // Test runner and reporter
+    // ------------------------------------------------------------
+
+    ConsoleReporter reporter(std::cout);
+    TestRunner runner(&reporter);
+
+    // ------------------------------------------------------------
+    // Run all tests
+    // ------------------------------------------------------------
+
+    const auto results = runner.runAll(registry);
+
+    // ------------------------------------------------------------
+    // Verify complete test run
+    // ------------------------------------------------------------
+
+    if (!verifyBasicResults(results))
+    {
         return 1;
     }
+
+    if (!verifyFailures(results))
+    {
+        return 1;
+    }
+
+    // ------------------------------------------------------------
+    // Run tests matching the "math." filter
+    // ------------------------------------------------------------
+
+    const auto mathResults = runner.runAll(
+        registry,
+        [](const TestCase& test)
+        {
+            return test.id().starts_with("math.");
+        });
+
+    if (!verifyMathFilter(mathResults))
+    {
+        return 1;
+    }
+
+    // ------------------------------------------------------------
+    // Run an intentionally empty filter
+    // ------------------------------------------------------------
+
+    const auto emptyResults = runner.runAll(
+        registry,
+        [](const TestCase& test)
+        {
+            return test.id().starts_with("database.");
+        });
+
+    if (!verifyEmptyFilter(emptyResults))
+    {
+        return 1;
+    }
+
+    // ------------------------------------------------------------
+    // Run a filter that selects every test
+    // ------------------------------------------------------------
+
+    const auto allResults = runner.runAll(
+        registry,
+        [](const TestCase&)
+        {
+            return true;
+        });
+
+    if (!verifyAllFilter(allResults))
+    {
+        return 1;
+    }
+
+    // ------------------------------------------------------------
+    // Self-test summary
+    // ------------------------------------------------------------
 
     std::cout
         << "\n=== Framework Self-Tests Passed ===\n";

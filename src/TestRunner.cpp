@@ -74,4 +74,28 @@ namespace testexplorer
 
         return results;
     }
+
+    std::vector<TestResult> TestRunner::runAll(
+        const TestRegistry &registry,
+        TestFilter filter)
+    {
+        std::vector<TestResult> results;
+
+        for (const TestCase &test : registry.tests())
+        {
+            if (!filter(test))
+            {
+                continue;
+            }
+
+            results.push_back(run(test));
+        }
+
+        if (m_reporter != nullptr)
+        {
+            m_reporter->testRunFinished(results);
+        }
+
+        return results;
+    }
 }

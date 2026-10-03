@@ -1,6 +1,7 @@
 #ifndef TESTRUNNER
 #define TESTRUNNER
 
+#include <TestExplorer/TestFilter.hpp>
 #include <TestExplorer/TestResult.hpp>
 
 #include <vector>
@@ -22,6 +23,10 @@ namespace testexplorer
 
         std::vector<TestResult> runAll(
             const TestRegistry &registry);
+
+        std::vector<TestResult> runAll(
+            const TestRegistry &registry,
+            TestFilter filter);
 
     private:
         TestReporter *m_reporter;
