@@ -5,6 +5,7 @@
 #include <TestExplorer/TestContext.hpp>
 #include <TestExplorer/TestRegistry.hpp>
 #include <TestExplorer/TestReporter.hpp>
+#include <stdexcept>
 
 #include <chrono>
 #include <vector>
@@ -55,6 +56,21 @@ namespace testexplorer
         }
 
         return result;
+    }
+
+    TestResult TestRunner::run(
+        const TestRegistry &registry,
+        const std::string &testId)
+    {
+        const TestCase *test = registry.find(testId);
+
+        if (test == nullptr)
+        {
+            throw std::invalid_argument(
+                "Test not found: " + testId);
+        }
+
+        return run(*test);
     }
 
     std::vector<TestResult> TestRunner::runAll(

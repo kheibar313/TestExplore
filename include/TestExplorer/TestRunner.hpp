@@ -21,6 +21,10 @@ namespace testexplorer
         TestResult run(
             const TestCase &test);
 
+        TestResult run(
+            const TestRegistry &registry,
+            const std::string &testId);
+
         std::vector<TestResult> runAll(
             const TestRegistry &registry);
 

@@ -209,7 +209,7 @@ A successful test produces a `Passed` result, while a test with failed assertion
 
 ---
 
-## Test Filtering
+## Test Filtering and Single Test Execution
 
 TestExplorer supports selecting tests before execution through a lightweight filtering API.
 
@@ -223,7 +223,7 @@ using TestFilter =
 The filter receives each registered `TestCase` and returns:
 
 - `true` → execute the test
-- `false` → skip the test
+- `false` → exclude the test
 
 For example, to execute only tests whose IDs start with `math.`:
 
@@ -237,25 +237,46 @@ const auto results = runner.runAll(
 );
 ```
 
-This allows test selection without coupling filtering logic to `TestRunner` or `TestRegistry`.
+### Single Test Execution
+
+A single registered test can also be executed directly by its ID:
+
+```cpp
+const TestResult result =
+    runner.run(registry, "math.addition");
+```
+
+The registry-aware overload resolves the requested test through `TestRegistry` and delegates the actual execution to the existing `run(const TestCase&)` implementation.
+
+If the requested test ID does not exist, `std::invalid_argument` is thrown.
+
+Single-test execution uses the same execution lifecycle as normal test execution, including:
+
+- Test context management
+- Execution timing
+- Result generation
+- Reporter notifications
 
 The execution flow is:
 
 ```text
 TestRegistry
      │
-     ▼
-Registered TestCases
+     ├── TestFilter ──► selected TestCases
+     │                       │
+     │                       ▼
+     │                  TestRunner::run()
+     │                       │
+     │                       ▼
+     │                  TestResult
      │
-     ▼
-   Filter
-     │
-     ├── false ──► Skip
-     │
-     └── true ───► TestRunner::run()
-                         │
-                         ▼
-                     TestResult
+     └── Test ID ─────► TestRegistry::find()
+                              │
+                              ▼
+                         TestCase
+                              │
+                              ▼
+                       TestRunner::run()
 ```
 
 The current implementation has been validated with:
@@ -263,6 +284,8 @@ The current implementation has been validated with:
 - A filter selecting two tests
 - A filter matching no tests
 - A filter matching all registered tests
+- Single-test execution by ID
+- Invalid test ID handling
 
 ---
 
@@ -273,9 +296,9 @@ TestExplorer separates test execution from result presentation through the `Test
 A reporter receives lifecycle events:
 
 ```cpp
-testStarted(...)
-testFinished(...)
-testRunFinished(...)
+testStarted(...);
+testFinished(...);
+testRunFinished(...);
 ```
 
 A reporter can therefore observe individual test execution as well as the completion of an entire test run.
@@ -364,15 +387,15 @@ TestExplorer is built around independent components with clearly separated respo
                          Test Application
                                 │
                                 ▼
-                           TestRunner
+                            TestRunner
                                 │
-             ┌──────────────────┼──────────────────┐
-             │                  │                  │
-             ▼                  ▼                  ▼
-        TestRegistry         TestContext        Reporter
-             │                  │                  │
-             ▼                  ▼                  ▼
-          TestCase          Assertions      TestResult
+              ┌─────────────────┼─────────────────┐
+              │                 │                 │
+              ▼                 ▼                 ▼
+        TestRegistry       TestContext        Reporter
+              │                 │                 │
+              ▼                 ▼                 ▼
+          TestCase          Assertions       TestResult
                                 │
                                 ▼
                            TestFailure
@@ -382,8 +405,8 @@ The intended dependency direction is:
 
 ```text
 Consumer Tests / CLI / Examples
-              │
-              ▼
+            │
+            ▼
       TestExplorer Library
 ```
 
@@ -400,7 +423,7 @@ TestRegistry
      │
      │ executes
      ▼
-TestRunner
+ TestRunner
      │
      ├── creates TestContext
      ├── manages execution
@@ -409,7 +432,7 @@ TestRunner
      └── produces TestResult
               │
               ▼
-          Reporter
+           Reporter
 ```
 
 Assertions operate inside the active `TestContext` and record `TestFailure` objects when an assertion fails.
@@ -444,7 +467,7 @@ It currently provides:
 
 The registry does not execute tests.
 
-This keeps test discovery/storage separate from execution.
+This keeps test discovery and storage separate from execution.
 
 ---
 
@@ -455,6 +478,7 @@ This keeps test discovery/storage separate from execution.
 It currently handles:
 
 - Individual test execution
+- Single-test execution by ID
 - Running all registered tests
 - Test filtering
 - Execution timing
@@ -473,25 +497,28 @@ The runner does not:
 The current core execution API includes:
 
 ```cpp
-TestResult run(const TestCase& test);
-```
+TestResult run(
+    const TestCase& test
+);
 
-and:
+TestResult run(
+    const TestRegistry& registry,
+    const std::string& testId
+);
 
-```cpp
 std::vector<TestResult> runAll(
     const TestRegistry& registry
 );
-```
 
-with filtering support through:
-
-```cpp
 std::vector<TestResult> runAll(
     const TestRegistry& registry,
     TestFilter filter
 );
 ```
+
+The registry-aware `run()` overload resolves a test by its registered ID and delegates execution to `run(const TestCase&)`.
+
+If the requested test cannot be found, the runner throws `std::invalid_argument`.
 
 ---
 
@@ -561,9 +588,9 @@ Keeping `TestResult` separate from `TestCase` allows one test definition to prod
 The reporter abstraction currently provides:
 
 ```cpp
-testStarted(...)
-testFinished(...)
-testRunFinished(...)
+testStarted(...);
+testFinished(...);
+testRunFinished(...);
 ```
 
 The current implementation includes `ConsoleReporter`.
@@ -729,7 +756,7 @@ The project is being developed incrementally.
 ### Test Organization
 
 - [x] Test filtering
-- [ ] Run single test by ID
+- [x] Run single test by ID
 - [ ] Run failed tests
 - [ ] Test groups / suites
 - [ ] Tags / categories
@@ -808,9 +835,9 @@ TestExplorer is an experimental open-source project under active development.
 
 The API is **not stable** and may change significantly before the first release.
 
-The current implementation has established and validated the framework's initial execution, assertion, filtering, and reporting architecture.
+The current implementation has established and validated the framework's initial execution, assertion, filtering, single-test execution, and reporting architecture.
 
-The next development focus is expanding test selection and execution capabilities while keeping the core architecture small and maintainable.
+The next development focus is expanding test execution and organization capabilities while keeping the core architecture small and maintainable.
 
 ---
 
