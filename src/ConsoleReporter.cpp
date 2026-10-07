@@ -76,6 +76,14 @@ namespace testexplorer
                 << failure.location().line()
                 << '\n';
         }
+
+        if (result.status() == TestStatus::Error)
+        {
+            m_output
+                << "  Error: "
+                << result.errorMessage()
+                << '\n';
+        }
     }
 
     void ConsoleReporter::testRunFinished(

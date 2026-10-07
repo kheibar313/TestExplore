@@ -1,8 +1,9 @@
-#include <TestExplorer/Assertions.hpp>
-#include <TestExplorer/ConsoleReporter.hpp>
 #include <TestExplorer/TestCase.hpp>
-#include <TestExplorer/TestRegistry.hpp>
+#include <TestExplorer/Assertions.hpp>
 #include <TestExplorer/TestRunner.hpp>
+#include <TestExplorer/TestRegistry.hpp>
+#include <TestExplorer/ConsoleReporter.hpp>
+#include <TestExplorer/CurrentTestContext.hpp>
 
 #include <string>
 #include <iostream>
@@ -101,6 +102,36 @@ namespace
                     EXPECT_EQ(
                         std::string("hello"),
                         std::string("hello"));
+                }));
+    }
+
+    void registerExceptionTests(TestRegistry &registry)
+    {
+        registry.registerTest(
+            TestCase(
+                "exceptions.runtime_error",
+                "Runtime Error",
+                [](TestContext &)
+                {
+                    throw std::runtime_error("runtime error");
+                }));
+
+        registry.registerTest(
+            TestCase(
+                "exceptions.unknown",
+                "Unknown Exception",
+                [](TestContext &)
+                {
+                    throw 42;
+                }));
+
+        registry.registerTest(
+            TestCase(
+                "exceptions.after_error",
+                "Test After Error",
+                [](TestContext &)
+                {
+                    EXPECT_TRUE(true);
                 }));
     }
 
@@ -293,6 +324,97 @@ namespace
 
         return true;
     }
+
+    bool verifyExceptionHandling(
+        TestRunner &runner,
+        TestRegistry &registry)
+    {
+        const auto results = runner.runAll(registry);
+
+        if (results.size() != 3)
+        {
+            std::cerr
+                << "Self-test error: expected 3 exception tests, got "
+                << results.size()
+                << '\n';
+
+            return false;
+        }
+
+        if (results[0].status() != TestStatus::Error)
+        {
+            std::cerr
+                << "Self-test error: runtime_error test should be Error.\n";
+
+            return false;
+        }
+
+        if (results[0].errorMessage() != "runtime error")
+        {
+            std::cerr
+                << "Self-test error: unexpected runtime_error message.\n";
+
+            return false;
+        }
+
+        if (results[1].status() != TestStatus::Error)
+        {
+            std::cerr
+                << "Self-test error: unknown exception test should be Error.\n";
+
+            return false;
+        }
+
+        if (results[1].errorMessage() != "Unknown exception")
+        {
+            std::cerr
+                << "Self-test error: unexpected unknown exception message.\n";
+
+            return false;
+        }
+
+        if (results[2].status() != TestStatus::Passed)
+        {
+            std::cerr
+                << "Self-test error: test after exception should still run.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool verifyExceptionContextCleanup(
+        TestRunner &runner,
+        TestRegistry &registry)
+    {
+        const TestResult result =
+            runner.run(
+                registry,
+                "exceptions.runtime_error");
+
+        if (result.status() != TestStatus::Error)
+        {
+            std::cerr
+                << "Self-test error: expected exception test to return Error.\n";
+
+            return false;
+        }
+
+        try
+        {
+            CurrentTestContext::get();
+
+            std::cerr
+                << "Self-test error: CurrentTestContext was not cleared.\n";
+
+            return false;
+        }
+        catch (const std::logic_error &)
+        {
+            return true;
+        }
+    }
 } // namespace
 
 int main()
@@ -405,6 +527,24 @@ int main()
         std::cerr
             << "Self-test error: expected no failed tests to rerun.\n";
 
+        return 1;
+    }
+
+    // Exception handling tests
+    TestRegistry exceptionRegistry;
+    registerExceptionTests(exceptionRegistry);
+
+    if (!verifyExceptionHandling(
+            runner,
+            exceptionRegistry))
+    {
+        return 1;
+    }
+
+    if (!verifyExceptionContextCleanup(
+            runner,
+            exceptionRegistry))
+    {
         return 1;
     }
 

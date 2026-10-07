@@ -4,14 +4,30 @@
 #include <TestExplorer/TestContext.hpp>
 #include <TestExplorer/TestRegistry.hpp>
 #include <TestExplorer/TestReporter.hpp>
-#include <stdexcept>
 
 #include <chrono>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace testexplorer
 {
-    TestRunner::TestRunner(TestReporter *reporter) : m_reporter(reporter) {}
+    namespace
+    {
+        class TestContextGuard
+        {
+        public:
+            ~TestContextGuard()
+            {
+                CurrentTestContext::clear();
+            }
+        };
+    }
+
+    TestRunner::TestRunner(TestReporter *reporter)
+        : m_reporter(reporter)
+    {
+    }
 
     TestResult TestRunner::run(
         const TestCase &test)
@@ -21,33 +37,59 @@ namespace testexplorer
             m_reporter->testStarted(test);
         }
 
-        TestContext context;
-
-        CurrentTestContext::set(context);
-
-        const auto start = std::chrono::steady_clock::now();
-
-        test.execute(context);
-
-        const auto end = std::chrono::steady_clock::now();
-
-        CurrentTestContext::clear();
-
-        const TestStatus status =
-            context.failures().empty()
-                ? TestStatus::Passed
-                : TestStatus::Failed;
-
-        const auto duration =
-            std::chrono::duration_cast<TestResult::Duration>(
-                end - start);
-
         TestResult result(
             test.id(),
             test.name(),
-            status,
-            duration,
-            context.failures());
+            TestStatus::Error,
+            TestResult::Duration::zero(),
+            {});
+
+        {
+            TestContext context;
+
+            CurrentTestContext::set(context);
+            TestContextGuard contextGuard;
+
+            const auto start = std::chrono::steady_clock::now();
+
+            TestStatus status = TestStatus::Passed;
+            std::string errorMessage;
+
+            try
+            {
+                test.execute(context);
+
+                status =
+                    context.failures().empty()
+                        ? TestStatus::Passed
+                        : TestStatus::Failed;
+            }
+            catch (const std::exception &exception)
+            {
+                status = TestStatus::Error;
+                errorMessage = exception.what();
+            }
+            catch (...)
+            {
+                status = TestStatus::Error;
+                errorMessage = "Unknown exception";
+            }
+
+            const auto end =
+                std::chrono::steady_clock::now();
+
+            const auto duration =
+                std::chrono::duration_cast<TestResult::Duration>(
+                    end - start);
+
+            result = TestResult(
+                test.id(),
+                test.name(),
+                status,
+                duration,
+                context.failures(),
+                errorMessage);
+        }
 
         if (m_reporter != nullptr)
         {

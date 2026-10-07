@@ -27,7 +27,8 @@ namespace testexplorer
             std::string testName,
             TestStatus status,
             Duration duration,
-            std::vector<TestFailure> failures);
+            std::vector<TestFailure> failures,
+            std::string errorMessage = {});
 
         const std::string &testId() const;
         const std::string &testName() const;
@@ -36,6 +37,7 @@ namespace testexplorer
         Duration duration() const;
 
         const std::vector<TestFailure> &failures() const;
+        const std::string &errorMessage() const;
 
     private:
         std::string m_testId;
@@ -45,6 +47,7 @@ namespace testexplorer
         Duration m_duration;
 
         std::vector<TestFailure> m_failures;
+        std::string m_errorMessage;
     };
 }
 

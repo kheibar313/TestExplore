@@ -9,12 +9,14 @@ namespace testexplorer
         std::string testName,
         TestStatus status,
         Duration duration,
-        std::vector<TestFailure> failures)
+        std::vector<TestFailure> failures,
+        std::string errorMessage)
         : m_testId(std::move(testId)),
           m_testName(std::move(testName)),
           m_status(status),
           m_duration(duration),
-          m_failures(std::move(failures))
+          m_failures(std::move(failures)),
+          m_errorMessage(std::move(errorMessage))
     {
     }
 
@@ -41,5 +43,10 @@ namespace testexplorer
     const std::vector<TestFailure> &TestResult::failures() const
     {
         return m_failures;
+    }
+
+    const std::string &TestResult::errorMessage() const
+    {
+        return m_errorMessage;
     }
 }
