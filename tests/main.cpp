@@ -13,6 +13,39 @@ using namespace testexplorer;
 
 namespace
 {
+    class RecordingReporter final : public TestReporter
+    {
+    public:
+        int startedCount = 0;
+        int finishedCount = 0;
+        int runFinishedCount = 0;
+
+        std::vector<std::string> startedTestIds;
+        std::vector<std::string> finishedTestIds;
+        std::vector<std::vector<TestResult>> completedRuns;
+
+        void testStarted(
+            const TestCase &test) override
+        {
+            ++startedCount;
+            startedTestIds.push_back(test.id());
+        }
+
+        void testFinished(
+            const TestResult &result) override
+        {
+            ++finishedCount;
+            finishedTestIds.push_back(result.testId());
+        }
+
+        void testRunFinished(
+            const std::vector<TestResult> &results) override
+        {
+            ++runFinishedCount;
+            completedRuns.push_back(results);
+        }
+    };
+
     void registerTests(TestRegistry &registry)
     {
         // ------------------------------------------------------------
@@ -325,6 +358,116 @@ namespace
         return true;
     }
 
+    bool verifyEmptyRegistry(
+        TestRunner &runner)
+    {
+        TestRegistry emptyRegistry;
+
+        const auto results = runner.runAll(emptyRegistry);
+
+        if (!results.empty())
+        {
+            std::cerr
+                << "Self-test error: expected empty registry to produce no results.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool verifyEmptyPreviousResults(
+        TestRunner &runner,
+        TestRegistry &registry)
+    {
+        const std::vector<TestResult> previousResults;
+
+        const auto results =
+            runner.runFailed(
+                registry,
+                previousResults);
+
+        if (!results.empty())
+        {
+            std::cerr
+                << "Self-test error: expected no failed tests from empty previous results.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool verifyRunFailedIgnoresNonFailedResults(
+        TestRunner &runner,
+        TestRegistry &registry)
+    {
+        const std::vector<TestResult> previousResults =
+            {
+                TestResult(
+                    "synthetic.passed",
+                    "Synthetic Passed",
+                    TestStatus::Passed,
+                    TestResult::Duration::zero(),
+                    {}),
+                TestResult(
+                    "synthetic.skipped",
+                    "Synthetic Skipped",
+                    TestStatus::Skipped,
+                    TestResult::Duration::zero(),
+                    {}),
+                TestResult(
+                    "synthetic.error",
+                    "Synthetic Error",
+                    TestStatus::Error,
+                    TestResult::Duration::zero(),
+                    {})};
+
+        const auto results =
+            runner.runFailed(
+                registry,
+                previousResults);
+
+        if (!results.empty())
+        {
+            std::cerr
+                << "Self-test error: runFailed should ignore non-failed results.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool verifyRunFailedIgnoresMissingTests(
+        TestRunner &runner,
+        TestRegistry &registry)
+    {
+        const std::vector<TestResult> previousResults =
+            {
+                TestResult(
+                    "does.not.exist",
+                    "Missing Test",
+                    TestStatus::Failed,
+                    TestResult::Duration::zero(),
+                    {})};
+
+        const auto results =
+            runner.runFailed(
+                registry,
+                previousResults);
+
+        if (!results.empty())
+        {
+            std::cerr
+                << "Self-test error: missing failed tests should be ignored.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
     bool verifyExceptionHandling(
         TestRunner &runner,
         TestRegistry &registry)
@@ -414,6 +557,180 @@ namespace
         {
             return true;
         }
+    }
+
+    bool verifyReporterLifecycle(
+        TestRegistry &registry)
+    {
+        RecordingReporter reporter;
+        TestRunner runner(&reporter);
+
+        const TestCase *test =
+            registry.find("assertions.passing");
+
+        if (test == nullptr)
+        {
+            std::cerr
+                << "Self-test error: lifecycle test case was not found.\n";
+
+            return false;
+        }
+
+        const auto singleResult = runner.run(*test);
+
+        if (singleResult.status() != TestStatus::Passed)
+        {
+            std::cerr
+                << "Self-test error: lifecycle single test should pass.\n";
+
+            return false;
+        }
+
+        if (reporter.startedCount != 1 ||
+            reporter.finishedCount != 1 ||
+            reporter.runFinishedCount != 0)
+        {
+            std::cerr
+                << "Self-test error: invalid single-test reporter lifecycle.\n";
+
+            return false;
+        }
+
+        const auto results = runner.runAll(registry);
+
+        if (reporter.startedCount != 8 ||
+            reporter.finishedCount != 8 ||
+            reporter.runFinishedCount != 1)
+        {
+            std::cerr
+                << "Self-test error: invalid runAll reporter lifecycle.\n";
+
+            return false;
+        }
+
+        if (reporter.completedRuns.size() != 1 ||
+            reporter.completedRuns.front().size() != registry.tests().size())
+        {
+            std::cerr
+                << "Self-test error: invalid runFinished result set.\n";
+
+            return false;
+        }
+
+        if (results.size() != registry.tests().size())
+        {
+            std::cerr
+                << "Self-test error: runAll result count mismatch.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool verifyTestResultConsistency(
+        TestRegistry &registry,
+        TestRegistry &exceptionRegistry)
+    {
+        TestRunner runner;
+
+        const TestCase *passedTest =
+            registry.find("assertions.passing");
+
+        const TestCase *failedTest =
+            registry.find("assertions.failing");
+
+        const TestCase *errorTest =
+            exceptionRegistry.find("exceptions.runtime_error");
+
+        if (passedTest == nullptr ||
+            failedTest == nullptr ||
+            errorTest == nullptr)
+        {
+            std::cerr
+                << "Self-test error: required TestResult consistency test case was not found.\n";
+
+            return false;
+        }
+
+        const TestResult passed =
+            runner.run(*passedTest);
+
+        if (passed.status() != TestStatus::Passed ||
+            !passed.failures().empty() ||
+            !passed.errorMessage().empty())
+        {
+            std::cerr
+                << "Self-test error: invalid Passed TestResult state.\n";
+
+            return false;
+        }
+
+        const TestResult failed =
+            runner.run(*failedTest);
+
+        if (failed.status() != TestStatus::Failed ||
+            failed.failures().empty() ||
+            !failed.errorMessage().empty())
+        {
+            std::cerr
+                << "Self-test error: invalid Failed TestResult state.\n";
+
+            return false;
+        }
+
+        const TestResult error =
+            runner.run(*errorTest);
+
+        if (error.status() != TestStatus::Error ||
+            error.errorMessage().empty())
+        {
+            std::cerr
+                << "Self-test error: invalid Error TestResult state.\n";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool verifyRepeatedExecutionIsolation()
+    {
+        TestRunner runner;
+
+        TestCase test(
+            "stability.repeated",
+            "Repeated Execution",
+            [](TestContext &context)
+            {
+                EXPECT_TRUE(context.failures().empty());
+            });
+
+        const TestResult first =
+            runner.run(test);
+
+        const TestResult second =
+            runner.run(test);
+
+        if (first.status() != TestStatus::Passed ||
+            second.status() != TestStatus::Passed)
+        {
+            std::cerr
+                << "Self-test error: repeated execution should remain isolated.\n";
+
+            return false;
+        }
+
+        if (!first.failures().empty() ||
+            !second.failures().empty())
+        {
+            std::cerr
+                << "Self-test error: repeated execution leaked failures.\n";
+
+            return false;
+        }
+
+        return true;
     }
 } // namespace
 
@@ -516,6 +833,36 @@ int main()
         return 1;
     }
 
+    // Verify empty registry execution
+    if (!verifyEmptyRegistry(runner))
+    {
+        return 1;
+    }
+
+    // Verify runFailed with no previous results
+    if (!verifyEmptyPreviousResults(
+            runner,
+            registry))
+    {
+        return 1;
+    }
+
+    // Verify runFailed ignores non-failed results
+    if (!verifyRunFailedIgnoresNonFailedResults(
+            runner,
+            registry))
+    {
+        return 1;
+    }
+
+    // Verify runFailed ignores missing tests
+    if (!verifyRunFailedIgnoresMissingTests(
+            runner,
+            registry))
+    {
+        return 1;
+    }
+
     // Run failed tests when there are no failures
     const auto noFailedResults =
         runner.runFailed(
@@ -544,6 +891,23 @@ int main()
     if (!verifyExceptionContextCleanup(
             runner,
             exceptionRegistry))
+    {
+        return 1;
+    }
+
+    if (!verifyReporterLifecycle(registry))
+    {
+        return 1;
+    }
+
+    if (!verifyTestResultConsistency(
+            registry,
+            exceptionRegistry))
+    {
+        return 1;
+    }
+
+    if (!verifyRepeatedExecutionIsolation())
     {
         return 1;
     }
