@@ -1,5 +1,5 @@
-#ifndef TESTREPORTER
-#define TESTREPORTER
+#ifndef TESTREPORTER_HPP
+#define TESTREPORTER_HPP
 
 #include <TestExplorer/TestResult.hpp>
 #include <TestExplorer/TestCase.hpp>

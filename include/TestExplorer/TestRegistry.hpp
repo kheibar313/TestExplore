@@ -1,5 +1,5 @@
-#ifndef TESTREGISTRY
-#define TESTREGISTRY
+#ifndef TESTREGISTRY_HPP
+#define TESTREGISTRY_HPP
 
 #include <TestExplorer/TestCase.hpp>
 

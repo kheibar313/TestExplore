@@ -1,5 +1,5 @@
-#ifndef CURRENTTESTCONTEXT
-#define CURRENTTESTCONTEXT
+#ifndef CURRENTTESTCONTEXT_HPP
+#define CURRENTTESTCONTEXT_HPP
 
 namespace testexplorer
 {

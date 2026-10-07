@@ -1,5 +1,5 @@
-#ifndef CONSOLEREPORTER
-#define CONSOLEREPORTER
+#ifndef CONSOLEREPORTER_HPP
+#define CONSOLEREPORTER_HPP
 
 #include <TestExplorer/TestReporter.hpp>
 

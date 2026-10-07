@@ -1,5 +1,5 @@
-#ifndef TESTRUNNER
-#define TESTRUNNER
+#ifndef TESTRUNNER_HPP
+#define TESTRUNNER_HPP
 
 #include <TestExplorer/TestFilter.hpp>
 #include <TestExplorer/TestResult.hpp>

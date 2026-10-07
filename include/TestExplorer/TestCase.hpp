@@ -1,5 +1,5 @@
-#ifndef TESTCASE
-#define TESTCASE
+#ifndef TESTCASE_HPP
+#define TESTCASE_HPP
 
 #include <functional>
 #include <string>

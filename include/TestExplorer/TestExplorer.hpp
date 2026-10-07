@@ -1,5 +1,6 @@
-#ifndef TESTEXPLORER
-#define TESTEXPLORER
+#ifndef TESTEXPLORER_HPP
+#define TESTEXPLORER_HPP
+
 namespace testexplorer
 {
 

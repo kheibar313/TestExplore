@@ -1,5 +1,5 @@
-#ifndef TESTFAILURE
-#define TESTFAILURE
+#ifndef TESTFAILURE_HPP
+#define TESTFAILURE_HPP
 
 #include <string>
 #include <source_location>

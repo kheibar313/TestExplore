@@ -1,5 +1,5 @@
-#ifndef ASSERTIONS
-#define ASSERTIONS
+#ifndef ASSERTIONS_HPP
+#define ASSERTIONS_HPP
 
 #include <TestExplorer/TestContext.hpp>
 #include <TestExplorer/TestFailure.hpp>

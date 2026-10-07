@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# TestExplorer Library
 add_library(TestExplorer STATIC
     src/TestExplorer.cpp
     src/TestCase.cpp
@@ -33,6 +34,7 @@ target_compile_features(TestExplorer
         cxx_std_20
 )
 
+# TestExplorer CLI
 add_executable(TestExplorerCLI
     apps/testexplorer/main.cpp
 )
@@ -42,8 +44,14 @@ target_link_libraries(TestExplorerCLI
         TestExplorer
 )
 
+# TestExplorer Self-Tests
 add_executable(TestExplorerSelfTests
     tests/main.cpp
+    tests/test_registration.cpp
+    tests/test_assertions.cpp
+    tests/test_runner.cpp
+    tests/test_exceptions.cpp
+    tests/test_stability.cpp
 )
 
 target_link_libraries(TestExplorerSelfTests
@@ -51,6 +59,7 @@ target_link_libraries(TestExplorerSelfTests
         TestExplorer
 )
 
+# TestExplorer Example
 add_executable(TestExplorerExample
     examples/basic/main.cpp
 )

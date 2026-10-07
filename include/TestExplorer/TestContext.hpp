@@ -1,5 +1,5 @@
-#ifndef TESTCONTEXT
-#define TESTCONTEXT
+#ifndef TESTCONTEXT_HPP
+#define TESTCONTEXT_HPP
 
 #include <TestExplorer/TestFailure.hpp>
 #include <vector>

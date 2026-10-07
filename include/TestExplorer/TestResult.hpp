@@ -1,5 +1,5 @@
-#ifndef TESTRESULT
-#define TESTRESULT
+#ifndef TESTRESULT_HPP
+#define TESTRESULT_HPP
 
 #include <TestExplorer/TestFailure.hpp>
 
