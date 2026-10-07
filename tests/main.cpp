@@ -12,7 +12,6 @@ using namespace testexplorer;
 
 namespace
 {
-
     void registerTests(TestRegistry &registry)
     {
         // ------------------------------------------------------------
@@ -253,6 +252,47 @@ namespace
                result.testName() == "Math Addition" &&
                result.status() == TestStatus::Passed;
     }
+
+    bool verifyRunFailed(
+        const std::vector<TestResult> &results)
+    {
+        if (results.size() != 2)
+        {
+            std::cerr
+                << "Self-test error: expected 2 failed tests to be rerun, got "
+                << results.size()
+                << '\n';
+
+            return false;
+        }
+
+        if (results[0].testId() != "assertions.failing")
+        {
+            std::cerr
+                << "Self-test error: first failed test is incorrect.\n";
+
+            return false;
+        }
+
+        if (results[1].testId() != "assertions.multiple_failures")
+        {
+            std::cerr
+                << "Self-test error: second failed test is incorrect.\n";
+
+            return false;
+        }
+
+        if (results[0].status() != TestStatus::Failed ||
+            results[1].status() != TestStatus::Failed)
+        {
+            std::cerr
+                << "Self-test error: rerun failed tests should still fail.\n";
+
+            return false;
+        }
+
+        return true;
+    }
 } // namespace
 
 int main()
@@ -319,7 +359,7 @@ int main()
         return 1;
     }
 
-    // Run a Single test
+    // Run a single test
     const TestResult singleResult =
         runner.run(
             registry,
@@ -330,6 +370,7 @@ int main()
         return 1;
     }
 
+    // Verify invalid test ID handling
     try
     {
         runner.run(
@@ -340,6 +381,31 @@ int main()
     }
     catch (const std::invalid_argument &)
     {
+    }
+
+    // Rerun previously failed tests
+    const auto failedResults =
+        runner.runFailed(
+            registry,
+            results);
+
+    if (!verifyRunFailed(failedResults))
+    {
+        return 1;
+    }
+
+    // Run failed tests when there are no failures
+    const auto noFailedResults =
+        runner.runFailed(
+            registry,
+            mathResults);
+
+    if (!noFailedResults.empty())
+    {
+        std::cerr
+            << "Self-test error: expected no failed tests to rerun.\n";
+
+        return 1;
     }
 
     // Self-test summary

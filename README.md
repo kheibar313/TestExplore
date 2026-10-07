@@ -38,6 +38,7 @@ The current implementation provides:
 - Single-test execution
 - Run-all execution
 - Test filtering
+- Run failed tests
 - Failure collection
 - Execution timing
 - C++20 `std::source_location` support
@@ -205,7 +206,7 @@ enum class TestStatus
 
 A successful test produces a `Passed` result, while a test with failed assertions produces a `Failed` result containing the corresponding failures.
 
-`Skipped` and `Error` are part of the result model but their full execution semantics are planned for future milestones.
+`Skipped` and `Error` are part of the result model, but their full execution semantics are planned for future milestones.
 
 ---
 
@@ -286,6 +287,83 @@ The current implementation has been validated with:
 - A filter matching all registered tests
 - Single-test execution by ID
 - Invalid test ID handling
+
+### Run Failed Tests
+
+TestExplorer can rerun tests that failed during a previous execution.
+
+The previous results are supplied explicitly to `runFailed()`:
+
+```cpp
+const auto results = runner.runAll(registry);
+
+const auto failedResults =
+    runner.runFailed(registry, results);
+```
+
+`runFailed()` examines the supplied `TestResult` objects and reruns only the tests whose previous status is `TestStatus::Failed`.
+
+The following results are not rerun:
+
+- `Passed`
+- `Skipped`
+- `Error`
+
+The API is:
+
+```cpp
+std::vector<TestResult> runFailed(
+    const TestRegistry& registry,
+    const std::vector<TestResult>& previousResults
+);
+```
+
+The execution flow is:
+
+```text
+Previous TestResults
+        │
+        ▼
+  TestStatus::Failed?
+      /        \
+    No          Yes
+    │            │
+    ▼            ▼
+  Ignore    TestRegistry::find()
+                 │
+                 ▼
+              TestCase
+                 │
+                 ▼
+        TestRunner::run()
+                 │
+                 ▼
+            TestResult
+```
+
+`TestRunner` does not store the previous results internally. The caller owns the previous execution results and explicitly passes them to `runFailed()`.
+
+Each selected failed test is executed through the existing:
+
+```cpp
+run(const TestCase&)
+```
+
+execution path. This keeps the actual test execution logic centralized rather than introducing a separate execution mechanism for failed tests.
+
+Reporter lifecycle is also preserved. When a reporter is configured, the failed-test execution uses the same test execution notifications as normal execution and reports the completion of the `runFailed()` operation.
+
+If a previously failed test ID can no longer be found in the supplied `TestRegistry`, the current implementation skips that test.
+
+Exception handling is intentionally not part of this milestone and remains a separate future feature.
+
+The current implementation has been validated with:
+
+- A previous result set containing failed and passed tests
+- Rerunning exactly the previously failed tests
+- Multiple failed tests
+- A result set containing no failed tests
+- Missing test IDs being skipped
 
 ---
 
@@ -437,6 +515,8 @@ TestRegistry
 
 Assertions operate inside the active `TestContext` and record `TestFailure` objects when an assertion fails.
 
+Test selection is kept separate from execution. Filtering selects tests before normal execution, while single-test and failed-test execution reuse the same underlying `run(const TestCase&)` execution path.
+
 ---
 
 ## TestCase
@@ -481,6 +561,7 @@ It currently handles:
 - Single-test execution by ID
 - Running all registered tests
 - Test filtering
+- Rerunning previously failed tests
 - Execution timing
 - Failure collection
 - Status determination
@@ -491,6 +572,7 @@ The runner does not:
 
 - Perform assertion comparisons
 - Store the test registry
+- Store previous test results
 - Format console output
 - Implement a specific reporting format
 
@@ -514,11 +596,20 @@ std::vector<TestResult> runAll(
     const TestRegistry& registry,
     TestFilter filter
 );
+
+std::vector<TestResult> runFailed(
+    const TestRegistry& registry,
+    const std::vector<TestResult>& previousResults
+);
 ```
 
 The registry-aware `run()` overload resolves a test by its registered ID and delegates execution to `run(const TestCase&)`.
 
 If the requested test cannot be found, the runner throws `std::invalid_argument`.
+
+`runFailed()` does not introduce a separate execution mechanism. It selects previously failed tests and delegates their actual execution to the existing `run(const TestCase&)` implementation.
+
+This keeps the execution model centralized and makes different test-selection strategies independent from the core execution path.
 
 ---
 
@@ -578,6 +669,8 @@ It contains:
 - Failures
 
 Keeping `TestResult` separate from `TestCase` allows one test definition to produce multiple independent execution results.
+
+This is particularly important for features such as failed-test reruns, where a single `TestCase` may be executed multiple times and each execution must produce its own result.
 
 ---
 
@@ -663,7 +756,9 @@ The repository currently contains three executable targets:
 | `TestExplorerExample` | Demonstrates framework usage | Under development |
 | `TestExplorerCLI` | Future command-line test runner | Under development |
 
-The `tests` directory contains the framework's own self-tests. The `apps` and `examples` directories are currently scaffolding for future development.
+The `tests` directory contains the framework's own self-tests.
+
+The `apps` and `examples` directories are currently scaffolding for future development.
 
 ---
 
@@ -757,7 +852,7 @@ The project is being developed incrementally.
 
 - [x] Test filtering
 - [x] Run single test by ID
-- [ ] Run failed tests
+- [x] Run failed tests
 - [ ] Test groups / suites
 - [ ] Tags / categories
 - [ ] Test hierarchy
@@ -805,7 +900,7 @@ A test definition should remain independent from the result of its execution.
 
 ### Explicit Test Selection
 
-Test selection should remain separate from execution so that future features such as tags, groups, and CLI filters can build on the same execution model.
+Test selection should remain separate from execution so that features such as tags, groups, failed-test reruns, and CLI filters can build on the same execution model.
 
 ### Incremental Development
 
@@ -835,7 +930,17 @@ TestExplorer is an experimental open-source project under active development.
 
 The API is **not stable** and may change significantly before the first release.
 
-The current implementation has established and validated the framework's initial execution, assertion, filtering, single-test execution, and reporting architecture.
+The current implementation has established and validated the framework's initial execution, assertion, filtering, single-test execution, failed-test rerun, and reporting architecture.
+
+The test execution core currently supports:
+
+- Running all registered tests
+- Filtering tests before execution
+- Running an individual test by ID
+- Rerunning tests that previously failed
+- Collecting assertion failures
+- Measuring execution time
+- Reporting execution lifecycle events
 
 The next development focus is expanding test execution and organization capabilities while keeping the core architecture small and maintainable.
 

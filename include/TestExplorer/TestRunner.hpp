@@ -32,6 +32,10 @@ namespace testexplorer
             const TestRegistry &registry,
             TestFilter filter);
 
+        std::vector<TestResult> runFailed(
+            const TestRegistry &registry,
+            const std::vector<TestResult> &previousResults);
+
     private:
         TestReporter *m_reporter;
     };

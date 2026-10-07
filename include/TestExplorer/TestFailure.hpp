@@ -1,8 +1,8 @@
 #ifndef TESTFAILURE
 #define TESTFAILURE
 
-#include <source_location>
 #include <string>
+#include <source_location>
 
 namespace testexplorer
 {

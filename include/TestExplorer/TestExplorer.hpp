@@ -1,6 +1,8 @@
-#pragma once
-
+#ifndef TESTEXPLORER
+#define TESTEXPLORER
 namespace testexplorer
 {
 
 }
+
+#endif

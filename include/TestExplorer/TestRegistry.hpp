@@ -1,7 +1,8 @@
 #ifndef TESTREGISTRY
 #define TESTREGISTRY
 
-#include <E:\MyFile\myCode\TestExplore\include\TestExplorer\TestCase.hpp>
+#include <TestExplorer/TestCase.hpp>
+
 #include <vector>
 #include <string>
 

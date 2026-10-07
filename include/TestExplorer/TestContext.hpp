@@ -1,7 +1,7 @@
 #ifndef TESTCONTEXT
 #define TESTCONTEXT
 
-#include <E:\MyFile\myCode\TestExplore\include\TestExplorer\TestFailure.hpp>
+#include <TestExplorer/TestFailure.hpp>
 #include <vector>
 
 namespace testexplorer

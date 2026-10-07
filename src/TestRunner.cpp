@@ -1,5 +1,4 @@
 #include <TestExplorer/TestRunner.hpp>
-
 #include <TestExplorer/CurrentTestContext.hpp>
 #include <TestExplorer/TestCase.hpp>
 #include <TestExplorer/TestContext.hpp>
@@ -105,6 +104,38 @@ namespace testexplorer
             }
 
             results.push_back(run(test));
+        }
+
+        if (m_reporter != nullptr)
+        {
+            m_reporter->testRunFinished(results);
+        }
+
+        return results;
+    }
+
+    std::vector<TestResult> TestRunner::runFailed(
+        const TestRegistry &registry,
+        const std::vector<TestResult> &previousResults)
+    {
+        std::vector<TestResult> results;
+
+        for (const TestResult &previousResult : previousResults)
+        {
+            if (previousResult.status() != TestStatus::Failed)
+            {
+                continue;
+            }
+
+            const TestCase *test =
+                registry.find(previousResult.testId());
+
+            if (test == nullptr)
+            {
+                continue;
+            }
+
+            results.push_back(run(*test));
         }
 
         if (m_reporter != nullptr)
